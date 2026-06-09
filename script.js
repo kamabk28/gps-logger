@@ -16,6 +16,7 @@ const accuracyDisplay = document.getElementById('accuracyDisplay');
 let watchId = null;
 let recordedData = [];
 let maxSpeed = 0.0;
+let wakeLock = null; // ★追加：スリープ防止用の変数
 
 // 時計更新
 function updateClock() {
@@ -25,6 +26,28 @@ function updateClock() {
     return timeString;
 }
 setInterval(updateClock, 1000);
+
+// ★追加：スリープ防止機能をオンにする関数
+async function requestWakeLock() {
+    if ('wakeLock' in navigator) {
+        try {
+            wakeLock = await navigator.wakeLock.request('screen');
+            console.log('スリープ防止機能をオンにしました');
+        } catch (err) {
+            console.error(`スリープ防止エラー: ${err.name}, ${err.message}`);
+        }
+    }
+}
+
+// ★追加：スリープ防止機能をオフにする関数
+function releaseWakeLock() {
+    if (wakeLock !== null) {
+        wakeLock.release().then(() => {
+            wakeLock = null;
+            console.log('スリープ防止機能をオフにしました');
+        });
+    }
+}
 
 // [記録開始] ボタン
 startBtn.addEventListener('click', () => {
@@ -39,13 +62,15 @@ startBtn.addEventListener('click', () => {
     clearBtn.disabled = true;
     statusDisplay.textContent = 'GPSを取得中...';
 
+    // ★追加：記録開始と同時に画面を常時点灯にする
+    requestWakeLock();
+
     watchId = navigator.geolocation.watchPosition(
         (position) => {
             const currentTime = updateClock();
             const speedMps = position.coords.speed || 0;
             const speedKmph = parseFloat((speedMps * 3.6).toFixed(1));
 
-            // 最高速度の更新
             if (speedKmph > maxSpeed) {
                 maxSpeed = speedKmph;
                 maxSpeedDisplay.textContent = maxSpeed.toFixed(1);
@@ -83,6 +108,9 @@ stopBtn.addEventListener('click', () => {
         watchId = null;
     }
     
+    // ★追加：記録停止で常時点灯を解除（バッテリー節約）
+    releaseWakeLock();
+
     startBtn.disabled = false;
     stopBtn.disabled = true;
     statusDisplay.textContent = '停止中';
@@ -91,7 +119,6 @@ stopBtn.addEventListener('click', () => {
         downloadBtn.disabled = false;
         clearBtn.disabled = false;
         
-        // 自動ダウンロードにチェックが入っていれば即実行
         if (autoDownloadCb.checked) {
             downloadCSV();
         }
@@ -110,7 +137,6 @@ clearBtn.addEventListener('click', () => {
         recordedData = [];
         maxSpeed = 0.0;
         
-        // UIの初期化
         speedDisplay.textContent = '0.0';
         maxSpeedDisplay.textContent = '0.0';
         countDisplay.textContent = '0';
@@ -129,8 +155,8 @@ function downloadCSV() {
         csvContent += `${row.time},${row.speed},${row.lat},${row.lon}\n`;
     });
 
-    const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
-    const blob = new Blob([bom, csvContent], { type: 'text/csv;charset=utf-8;' });
+    // ★修正：BOM（ï»¿）を外して文字化けやエラーを防ぐ
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
