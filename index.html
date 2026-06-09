@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>電車速度ロガー</title>
+  <style>
+    /* 揺れる車内でも見やすいように全体を大きく・シンプルに */
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      background-color: #1a1a1a; /* バッテリー消費を抑えやすい暗めの背景 */
+      color: #ffffff;
+      padding-top: 50px;
+    }
+    .time-display {
+      font-size: 2.5em;
+      color: #aaaaaa;
+      margin-bottom: 10px;
+    }
+    .speed-display {
+      font-size: 5em;
+      font-weight: bold;
+      color: #00ffaa; /* メーターっぽく目立つ色に */
+      margin-bottom: 40px;
+    }
+    .speed-unit {
+      font-size: 0.3em;
+      color: #ffffff;
+    }
+    .btn {
+      font-size: 1.5em;
+      font-weight: bold;
+      padding: 20px 40px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      width: 80%;
+      max-width: 300px;
+    }
+    #startBtn {
+      background-color: #ff4444; /* 録画開始っぽい赤 */
+      color: white;
+    }
+    #stopBtn {
+      background-color: #4488ff;
+      color: white;
+      display: none; /* 最初は隠しておく */
+    }
+  </style>
+</head>
+<body>
+
+  <div class="time-display" id="time">00:00:00</div>
+  <div class="speed-display"><span id="speed">0</span><span class="speed-unit"> km/h</span></div>
+
+  <button class="btn" id="startBtn">記録スタート</button>
+  <button class="btn" id="stopBtn">ストップ＆CSV保存</button>
+
+  <script>
+    let currentSpeed = 0;
+    let watchId = null;
+    let logInterval = null;
+    let logData = [];
+    let startTime = 0;
+
+    // 現在時刻の更新（常に動かしておく）
+    setInterval(() => {
+      const now = new Date();
+      document.getElementById('time').innerText = now.toLocaleTimeString('ja-JP');
+    }, 1000);
+
+    // GPS取得の処理
+    function startGPS() {
+      if (!navigator.geolocation) {
+        alert('お使いのブラウザはGPSに対応していません。');
+        return;
+      }
+      
+      // enableHighAccuracy: true で極力正確なGPS（スマホのGPSチップ）を使う
+      watchId = navigator.geolocation.watchPosition(
+        (position) => {
+          // GPSから取れる速度は「秒速(m/s)」なので、3.6を掛けて「時速(km/h)」にする
+          let speedMs = position.coords.speed;
+          currentSpeed = speedMs ? Math.round(speedMs * 3.6) : 0;
+          document.getElementById('speed').innerText = currentSpeed;
+        },
+        (error) => {
+          console.warn('GPSエラー:', error.message);
+        },
+        { enableHighAccuracy: true, maximumAge: 0 }
+      );
+    }
+
+    // 記録スタートボタンを押したとき
+    document.getElementById('startBtn').addEventListener('click', () => {
+      // ボタンの切り替え
+      document.getElementById('startBtn').style.display = 'none';
+      document.getElementById('stopBtn').style.display = 'inline-block';
+
+      // データの初期化（1行目はCSVのヘッダー）
+      logData = [["elapsed_sec", "time", "speed"]];
+      startTime = Date.now();
+
+      // GPSの追跡を開始
+      startGPS();
+
+      // 1秒ごとにメモリにデータを書き溜める
+      logInterval = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        const timeStr = new Date().toLocaleTimeString('ja-JP');
+        logData.push([elapsed, timeStr, currentSpeed]);
+      }, 1000);
+    });
+
+    // ストップボタンを押したとき
+    document.getElementById('stopBtn').addEventListener('click', () => {
+      // ボタンの切り替え
+      document.getElementById('startBtn').style.display = 'inline-block';
+      document.getElementById('stopBtn').style.display = 'none';
+
+      // 記録とGPSの追跡を止める
+      clearInterval(logInterval);
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+
+      // CSVファイルを作ってダウンロードさせる処理
+      let csvContent = logData.map(row => row.join(",")).join("\n");
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      // ファイル名に現在時刻を入れて保存
+      link.download = `train_speed_${new Date().getTime()}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      alert('CSVファイルを保存しました！');
+    });
+  </script>
+
+</body>
+</html>
