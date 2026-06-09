@@ -1,0 +1,69 @@
+body {
+    font-family: sans-serif;
+    background-color: #f0f0f5;
+    margin: 0;
+    padding: 20px;
+    color: #333;
+}
+
+.container {
+    max-width: 400px;
+    margin: 0 auto;
+    text-align: center;
+}
+
+.display-panel {
+    background: #222;
+    color: #0f0; /* デジタルっぽい緑色 */
+    padding: 30px 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    font-family: monospace;
+}
+
+.time-display {
+    font-size: 24px;
+    margin-bottom: 10px;
+    color: #fff;
+}
+
+.speed-display {
+    font-size: 56px;
+    font-weight: bold;
+}
+
+.unit {
+    font-size: 20px;
+    color: #aaa;
+}
+
+.controls {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+
+.btn {
+    padding: 15px 20px;
+    font-size: 16px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+    flex: 1;
+}
+
+.btn.primary { background-color: #007bff; color: white; }
+.btn.danger { background-color: #dc3545; color: white; }
+.btn:disabled { background-color: #ccc; cursor: not-allowed; }
+
+.debug-info {
+    font-size: 14px;
+    color: #666;
+    text-align: left;
+    background: #fff;
+    padding: 15px;
+    border-radius: 5px;
+    border: 1px solid #ddd;
+}
